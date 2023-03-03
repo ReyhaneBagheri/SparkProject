@@ -1,0 +1,112 @@
+version: "3"
+
+services:
+  # Hadoop file system
+  namenode:
+    image: hoseinlook/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    restart: always
+    volumes:
+      - ./hadoop_namenode:/hadoop/dfs/name
+      - ./shared_dir:/shared_dir
+    environment:
+      - CLUSTER_NAME=test
+    ports:
+      - 9870:9870
+    env_file:
+      - ./hadoop.env
+    hostname: 10.20.30.11
+    networks:
+      hadoop_net:
+        ipv4_address: 10.20.30.11
+
+  datanode1:
+    image: hoseinlook/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    restart: always
+    volumes:
+      - ./hadoop_datanode1:/hadoop/dfs/data
+      - ./shared_dir:/shared_dir
+    environment:
+      SERVICE_PRECONDITION: "namenode:9870"
+    env_file:
+      - ./hadoop.env
+    hostname: 10.20.30.21
+    networks:
+      hadoop_net:
+        ipv4_address: 10.20.30.21
+
+  datanode2:
+    image: hoseinlook/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    restart: always
+    volumes:
+      - ./hadoop_datanode2:/hadoop/dfs/data
+      - ./shared_dir:/shared_dir
+    environment:
+      SERVICE_PRECONDITION: "namenode:9870"
+    env_file:
+      - ./hadoop.env
+    hostname: 10.20.30.22
+    networks:
+      hadoop_net:
+        ipv4_address: 10.20.30.22
+
+  # Jupyterlab
+  jupyterlab:
+    image: hoseinlook/jupyterlab-spark:3.0.0
+    container_name: jupyterlab
+    ports:
+      - 8888:8888
+      - 4040:4040
+    volumes:
+      - ./shared_dir:/opt/workspace
+    hostname: 10.20.30.100
+    networks:
+      hadoop_net:
+        ipv4_address: 10.20.30.100
+
+  # Spark Cluster
+  spark-master:
+    image: hoseinlook/spark-master:3.0.0
+    volumes:
+      - ./shared_dir:/opt/workspace
+    ports:
+      - 8080:8080
+    networks:
+      hadoop_net:
+        ipv4_address: 10.20.30.31
+
+  spark-worker-1:
+    image: hoseinlook/spark-worker:3.0.0
+    environment:
+      - SPARK_WORKER_CORES=5
+      - SPARK_WORKER_MEMORY=4g
+    volumes:
+      - ./shared_dir:/opt/workspace
+    depends_on:
+      - spark-master
+    hostname: 10.20.30.32
+    networks:
+      hadoop_net:
+        ipv4_address: 10.20.30.32
+
+  spark-worker-2:
+    image: hoseinlook/spark-worker:3.0.0
+    environment:
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2g
+    volumes:
+      - ./shared_dir:/opt/workspace
+    depends_on:
+      - spark-master
+    hostname: 10.20.30.33
+    networks:
+      hadoop_net:
+        ipv4_address: 10.20.30.33
+
+
+networks:
+  hadoop_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.20.30.0/24
+          gateway: 10.20.30.1
